@@ -1,0 +1,8 @@
+.env
+.env.*
+*.log
+__pycache__/
+*.py[cod]
+router-backup*
+home-devices.json
+credentials*
