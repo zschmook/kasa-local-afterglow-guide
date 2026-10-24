@@ -26,7 +26,7 @@ The original Afterglow implementation queried the older Kasa LAN protocol on UDP
 
 Afterglow already contained an unrelated, stale entry named "Living Room Light." That was an old discarded bulb, not the new Living Room device. Keep stable device identities separate from human-readable names when diagnosing replacements.
 
-The investigation also established that the inspected Afterglow server had its own home-device implementation and data file. It did not need an M3U Picker restart to register Reading. The separate issue of where the wider home-lighting controller belongs was deferred.
+The investigation also established that the inspected Afterglow server had its own home-device implementation and data file. Reading was registered without restarting Afterglow.
 
 ## What did not work
 
@@ -117,7 +117,7 @@ Verified results:
 - Its live state endpoint returned HTTP 200, power on, brightness 100.
 - Router readback still showed the reserved address and enabled internet rule.
 - The PC had rejoined its original home Wi-Fi.
-- No additional Afterglow or M3U service restart was needed for this registration.
+- No additional Afterglow restart was needed for this registration.
 
 The owner reported physical blinking during setup. The device subsequently reported normal state, but the owner had not yet confirmed whether the visible blinking had stopped. A real brightness/power change after provisioning, a long-running stability check, and the second-bulb setup also remain unverified.
 
