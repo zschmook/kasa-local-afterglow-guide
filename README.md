@@ -65,6 +65,23 @@ The Windows Wi-Fi network list initially showed only the connected network. An e
 
 Validate the bulb's MAC address before sending configuration. A generic setup SSID or matching model alone is insufficient.
 
+This read-only probe asks the setup network which protocol the bulb speaks. It prints the model and encryption scheme, not credentials or full device identifiers:
+
+```python
+import json
+import socket
+
+probe = bytes.fromhex("020000010000000000000000463cb5d3")
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
+    client.settimeout(3)
+    client.sendto(probe, ("192.168.0.1", 20002))
+    packet, sender = client.recvfrom(8192)
+    if sender != ("192.168.0.1", 20002):
+        raise RuntimeError("Unexpected discovery response source")
+    result = json.loads(packet[16:])["result"]
+    print(result["device_model"], result["mgt_encrypt_schm"])
+```
+
 ### 3. Check local authentication before changing Wi-Fi
 
 The helper tried a bounded set of local transports and read `system.get_sysinfo`. Early attempts timed out. A subsequent setup-network discovery and KLAP v2 query succeeded without owner account credentials.
@@ -74,6 +91,43 @@ Discovery changed from `ANS: true` while paired on the home LAN to `ANS: false` 
 The successful query supplied Reading's identity, firmware, and hardware version. A Wi-Fi scan through the bulb then found the home's 2.4 GHz network.
 
 Some Kasa system-information responses use `mic_mac` instead of `mac`; identity validation must handle both.
+
+The following example uses the same KLAP v2 transport that worked in this session. It reads identity information and always closes the connection. Run it while connected to the reset bulb's setup network, with `python-kasa==0.10.2` installed:
+
+```python
+import asyncio
+from contextlib import asynccontextmanager
+
+from kasa import DeviceConfig
+from kasa.iot import IotBulb
+from kasa.protocols.iotprotocol import IotProtocol
+from kasa.transports.klaptransport import KlapTransportV2
+
+
+@asynccontextmanager
+async def local_bulb(host):
+    protocol = IotProtocol(
+        transport=KlapTransportV2(config=DeviceConfig(host=host, timeout=4))
+    )
+    try:
+        reply = await protocol.query({"system": {"get_sysinfo": {}}})
+        info = reply["system"]["get_sysinfo"]
+        bulb = IotBulb(host, protocol=protocol)
+        bulb.update_from_discover_info(reply)
+        yield bulb, info
+    finally:
+        await protocol.close()
+
+
+async def inspect():
+    async with local_bulb("192.168.0.1") as (bulb, info):
+        print(info["model"], info["hw_ver"], info["sw_ver"])
+
+
+asyncio.run(inspect())
+```
+
+No owner credentials are supplied here. A paired device may reject this query; the example does not bypass a paired device's authentication.
 
 ### 4. Block the bulb's internet traffic before reconnecting it
 
@@ -103,6 +157,45 @@ Reading acknowledged the Wi-Fi join and returned at its reserved LAN IP address.
 The library documents direct Wi-Fi provisioning without its vendor app. Its documentation also distinguishes cloud-paired devices requiring credentials from devices that have not been connected to the cloud. This remains firmware-dependent. [Provisioning documentation](https://python-kasa.readthedocs.io/en/stable/cli.html#provisioning)
 
 Password-free local access here still used the KLAP encrypted transport. It did not mean that the device accepted unencrypted arbitrary commands.
+
+After enabling the router rule, reuse `local_bulb` above and replace the `inspect()` entry point with this provisioning step. It checks the expected bulb identity and prompts for the Wi-Fi key without echoing it:
+
+```python
+from getpass import getpass
+
+
+def normalize_mac(value):
+    return value.replace(":", "").replace("-", "").upper()
+
+
+async def provision():
+    expected = normalize_mac(input("Expected bulb MAC address: ").strip())
+    if len(expected) != 12 or any(c not in "0123456789ABCDEF" for c in expected):
+        raise ValueError("Enter the complete expected MAC address")
+
+    async with local_bulb("192.168.0.1") as (bulb, info):
+        actual = normalize_mac(info.get("mac") or info.get("mic_mac") or "")
+        if actual != expected or info.get("model") != "KL110(US)":
+            raise RuntimeError("Wrong bulb; Wi-Fi settings were not changed")
+
+        ssid = input("Home 2.4 GHz Wi-Fi name: ").strip()
+        key = getpass("Wi-Fi password: ")
+        if not ssid or not key:
+            raise ValueError("Network name and Wi-Fi key are required")
+        try:
+            await bulb.set_alias("Reading")
+            await asyncio.wait_for(bulb.wifi_join(ssid, key, keytype="3"), timeout=12)
+            print("Wi-Fi join acknowledged")
+        except asyncio.TimeoutError:
+            print("Check the home LAN: joining may have interrupted the reply")
+        finally:
+            key = None
+
+
+asyncio.run(provision())
+```
+
+These snippets demonstrate the device protocol; they do not configure the router or switch the PC's Wi-Fi automatically. Restore the PC's home connection after provisioning. The session's own Windows helper did that in a `finally` block.
 
 ### 6. Register and verify in Afterglow
 
