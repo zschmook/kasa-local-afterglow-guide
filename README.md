@@ -2,9 +2,9 @@
 
 An investigation and working local setup for one Kasa KL110 bulb, recorded on October 24, 2026.
 
-**Status:** Reading was factory-reset, provisioned directly onto home Wi-Fi without a TP-Link account, isolated from the internet, and registered in Afterglow. Its local identity and state queries succeeded. The second new bulb, Living Room, has not undergone this process yet.
+**Status:** Both Reading and Living Room were factory-reset, provisioned directly onto home Wi-Fi without a TP-Link account, given separate internet-block rules, and registered in Afterglow. Both answered local identity and state queries. The owner confirmed Reading's controls work; successful control requests were also observed in the server log.
 
-This is an observed result on one device and firmware version, not a promise that every Kasa bulb behaves the same way.
+This is an observed result on two devices with the same hardware and firmware versions, not a promise that every Kasa bulb behaves the same way.
 
 ## What we tested
 
@@ -214,7 +214,15 @@ Verified results:
 - The PC had rejoined its original home Wi-Fi.
 - No additional Afterglow restart was needed for this registration.
 
-The owner reported physical blinking during setup. The device subsequently reported normal state, but the owner had not yet confirmed whether the visible blinking had stopped. A real brightness/power change after provisioning, a long-running stability check, and the second-bulb setup also remain unverified.
+The owner reported physical blinking during setup. Both devices subsequently reported normal state. Reading's ordinary controls were confirmed working afterward; a long-running stability check and an owner-confirmed Living Room control change remain unverified. Some checks temporarily failed, so the initial successful setup must not be mistaken for a completed reliability test.
+
+### Replication on Living Room
+
+The same process succeeded on the second KL110(US), also hardware 4.6 with firmware 1.1.1 Build 260710 Rel.082646. Its setup network was matched to its own MAC, a separate address reservation and internet-block rule were added, and its alias was restored to `Living Room` before directly provisioning Wi-Fi.
+
+The first local connection attempt failed. A subsequent attempt explicitly queried setup discovery on UDP 20002, validated the response identity, and then successfully connected using KLAP v2 without owner credentials. This records the successful sequence; it does not establish why the first attempt failed.
+
+After provisioning, the bulb reported `dev_state: normal`, `is_factory: false`, power on, and brightness 100 through Afterglow. Both internet rules remained enabled. The obsolete discarded-bulb entry was removed from Afterglow with a local recovery copy retained, leaving only the replacement Living Room card.
 
 ## Operational lessons
 
@@ -228,10 +236,8 @@ The owner reported physical blinking during setup. The device subsequently repor
 
 ## Remaining work
 
-- Confirm Reading's visible blinking has stopped and test an ordinary control change.
-- Check Reading remains usable over time with the configured internet restriction.
-- Repeat the verified setup with the new Living Room bulb, after the owner resets that specific bulb.
-- Remove the stale discarded-bulb entry if requested.
+- Check both bulbs remain usable over time with their configured internet restrictions.
+- Confirm an ordinary control change on Living Room with the owner.
 - Improve the sign-in card's appearance and behavior separately if retaining that optional path.
 - Resolve the broader controller-location question in a separate change.
 
