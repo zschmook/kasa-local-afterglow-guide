@@ -199,6 +199,8 @@ These snippets demonstrate the device protocol; they do not configure the router
 
 ### 6. Register and verify in Afterglow
 
+Dashboard source and setup: [Afterglow on GitHub](https://github.com/zschmook/afterglow).
+
 The discovered identity was merged into Afterglow's existing saved lights by stable device ID. Other saved devices were preserved.
 
 Verified results:
